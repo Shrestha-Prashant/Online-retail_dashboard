@@ -87,42 +87,141 @@ def create_top_products_chart(filtered_data: str) -> dbc.Card:
         ])
     )
 
+# def create_product_trends_chart(filtered_data: str) -> dbc.Card:
+#     """
+#     Create a chart showing product category trends over time
+#     """
+#     df = pd.read_json(filtered_data, orient='split')
+    
+#     # Aggregate daily sales by category
+#     category_trends = df.groupby(['MonthYear', 'Category']).agg({
+#         'TotalAmount': 'sum'
+#     }).reset_index()
+    
+#     # Create line chart
+#     fig = px.line(
+#         category_trends,
+#         x='MonthYear',
+#         y='TotalAmount',
+#         color='Category',
+#         title='Category Sales Trends',
+#         color_discrete_sequence=chart_colors,
+#         template=plot_template
+#     )
+    
+#     # Update layout
+#     fig.update_layout(
+#         xaxis_title='Month',
+#         yaxis_title='Revenue (£)',
+#         legend_title='Category',
+#         hovermode='x unified',
+#         margin=dict(l=60, r=40, t=80, b=60)
+#     )
+    
+#     return dbc.Card(
+#         dbc.CardBody([
+#             dcc.Graph(figure=fig)
+#         ])
+#     )
+
 def create_product_trends_chart(filtered_data: str) -> dbc.Card:
     """
-    Create a chart showing product category trends over time
+    Create a chart showing overall product sales trends over time
     """
-    df = pd.read_json(filtered_data, orient='split')
-    
-    # Aggregate daily sales by category
-    category_trends = df.groupby(['MonthYear', 'Category']).agg({
-        'TotalAmount': 'sum'
-    }).reset_index()
-    
-    # Create line chart
-    fig = px.line(
-        category_trends,
-        x='MonthYear',
-        y='TotalAmount',
-        color='Category',
-        title='Category Sales Trends',
-        color_discrete_sequence=chart_colors,
-        template=plot_template
-    )
-    
-    # Update layout
-    fig.update_layout(
-        xaxis_title='Month',
-        yaxis_title='Revenue (£)',
-        legend_title='Category',
-        hovermode='x unified',
-        margin=dict(l=60, r=40, t=80, b=60)
-    )
-    
-    return dbc.Card(
-        dbc.CardBody([
-            dcc.Graph(figure=fig)
-        ])
-    )
+    try:
+        # Read the JSON data
+        df = pd.read_json(filtered_data, orient='split')
+        
+        # Convert InvoiceDate to datetime
+        df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'])
+        
+        # Create MonthYear column
+        df['MonthYear'] = df['InvoiceDate'].dt.strftime('%Y-%m')
+        
+        # Aggregate by month
+        monthly_trends = df.groupby('MonthYear').agg({
+            'TotalAmount': 'sum',
+            'Quantity': 'sum',
+            'InvoiceNo': 'nunique'
+        }).reset_index()
+        
+        # Sort by MonthYear
+        monthly_trends = monthly_trends.sort_values('MonthYear')
+        
+        # Create line chart
+        fig = go.Figure()
+        
+        # Add Revenue line
+        fig.add_trace(
+            go.Scatter(
+                x=monthly_trends['MonthYear'],
+                y=monthly_trends['TotalAmount'],
+                name='Revenue',
+                line=dict(color=chart_colors[0], width=2),
+                hovertemplate='Revenue: £%{y:,.2f}<extra></extra>'
+            )
+        )
+        
+        # Add Order Count line on secondary y-axis
+        fig.add_trace(
+            go.Scatter(
+                x=monthly_trends['MonthYear'],
+                y=monthly_trends['InvoiceNo'],
+                name='Orders',
+                line=dict(color=chart_colors[1], width=2),
+                yaxis='y2',
+                hovertemplate='Orders: %{y:,.0f}<extra></extra>'
+            )
+        )
+        
+        # Update layout
+        fig.update_layout(
+            title='Monthly Sales and Order Trends',
+            template=plot_template,
+            xaxis_title='Month',
+            yaxis=dict(
+                title='Revenue (£)',
+                titlefont=dict(color=chart_colors[0]),
+                tickfont=dict(color=chart_colors[0])
+            ),
+            yaxis2=dict(
+                title='Number of Orders',
+                titlefont=dict(color=chart_colors[1]),
+                tickfont=dict(color=chart_colors[1]),
+                anchor='x',
+                overlaying='y',
+                side='right'
+            ),
+            hovermode='x unified',
+            margin=dict(l=60, r=60, t=80, b=60),
+            xaxis=dict(
+                tickangle=45,
+                type='category'
+            ),
+            showlegend=True,
+            legend=dict(
+                orientation='h',
+                yanchor='bottom',
+                y=1.02,
+                xanchor='right',
+                x=1
+            )
+        )
+        
+        return dbc.Card(
+            dbc.CardBody([
+                dcc.Graph(figure=fig)
+            ])
+        )
+        
+    except Exception as e:
+        print(f"Error creating product trends chart: {str(e)}")
+        return dbc.Card(
+            dbc.CardBody([
+                html.H5("Unable to load product trends", className="text-danger"),
+                html.P(f"Error: {str(e)}", className="text-muted")
+            ])
+        )
 
 def create_product_correlation_chart(filtered_data: str) -> dbc.Card:
     """
@@ -455,33 +554,37 @@ def create_product_summary(filtered_data: str) -> dbc.Container:
     Returns:
         dbc.Container: Container with product analysis charts
     """
-    return dbc.Container([
-        dbc.Row([
-            dbc.Col([
-                create_top_products_chart(filtered_data)
-            ], md=12, className="mb-4")
-        ]),
-        dbc.Row([
-            dbc.Col([
-                create_product_trends_chart(filtered_data)
-            ], md=6),
-            dbc.Col([
-                create_product_correlation_chart(filtered_data)
-            ], md=6)
-        ], className="mb-4"),
-        dbc.Row([
-            dbc.Col([
-                create_category_performance_chart(
-                    pd.read_json(filtered_data, orient='split').groupby('Category').agg({
-                        'TotalAmount': 'sum',
-                        'Quantity': 'sum',
-                        'InvoiceNo': 'nunique',
-                        'CustomerID': 'nunique'
-                    }).reset_index()
-                )
-            ], md=12)
-        ])
-    ], fluid=True)
+    try:
+        return dbc.Container([
+            # Top Products Chart
+            dbc.Row([
+                dbc.Col([
+                    create_top_products_chart(filtered_data)
+                ], md=12, className="mb-4")
+            ]),
+            # Product Trends and Correlations
+            dbc.Row([
+                dbc.Col([
+                    create_product_trends_chart(filtered_data)
+                ], md=6),
+                dbc.Col([
+                    create_product_correlation_chart(filtered_data)
+                ], md=6)
+            ], className="mb-4")
+        ], fluid=True)
+        
+    except Exception as e:
+        print(f"Error details: {str(e)}")  # For debugging
+        return dbc.Container([
+            dbc.Alert(
+                [
+                    html.H4("Error loading product analysis", className="alert-heading"),
+                    html.P(f"Details: {str(e)}")
+                ],
+                color="danger",
+                className="mb-3"
+            )
+        ], fluid=True)
 
 
 

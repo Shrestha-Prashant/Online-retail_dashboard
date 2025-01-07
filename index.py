@@ -14,11 +14,24 @@ from components.customer_charts import create_customer_summary
 from components.geographic_charts import create_geographic_summary
 from data.data_loader import RetailDataLoader
 import logging
-logging.basicConfig(level=logging.INFO)
+from logging_config import setup_logging, log_error
+from monitor_utils import DashboardMonitor, monitor_callback, validate_dataframe
+from error_handler import DashboardErrorHandler
+
+# Set up logging
+loggers = setup_logging()
 logger = logging.getLogger(__name__)
+data_logger = loggers['data']
+callback_logger = loggers['callbacks']
+ui_logger = loggers['ui']
+
+
+# Create monitoring and error handling instances
+monitor = DashboardMonitor(callback_logger)
+error_handler = DashboardErrorHandler(logger)
 
 # Initialize the data loader
-DATA_PATH = 'Online Retail.xlsx'
+DATA_PATH = '/Users/panda/Documents/data_mining/Online-Retail-Dashboard/Online Retail.xlsx'
 CACHE_DIR = 'data/processed'
 loader = RetailDataLoader(DATA_PATH, CACHE_DIR)
 
@@ -28,13 +41,15 @@ def load_initial_data():
     try:
         logger.info("Loading initial data...")
         df = pd.read_excel(DATA_PATH)
+        if not validate_dataframe(df, data_logger):
+            raise ValueError("Data validation failed")
         if df is not None and not df.empty:
             df['TotalAmount'] = df['Quantity'] * df['UnitPrice']
             logger.info(f"Data loaded successfully: {len(df)} rows")
             return df, df['InvoiceDate'].min(), df['InvoiceDate'].max()
     except Exception as e:
-        logger.error(f"Error loading data: {e}")
-    return pd.DataFrame(), datetime.now(), datetime.now()
+        log_error(data_logger, e, "initial data loading")
+        return pd.DataFrame(), datetime.now(), datetime.now()
 
 # Update where initial data is loaded
 df, start_date, end_date = load_initial_data()
@@ -150,34 +165,41 @@ def initialize_store(start_date, current_data):
     [Input('main-tabs', 'active_tab'),
      Input('filtered-data-store', 'data')]
 )
+@monitor_callback(monitor)
 def update_tab_content(active_tab, filtered_data):
-    logger.info(f"Updating tab content: {active_tab}")
-    
-    if filtered_data is None:
-        logger.warning("No filtered data available")
-        return html.Div("No data available. Please check data loading.")
-
     try:
-        df = pd.read_json(filtered_data, orient='split')
-        if active_tab == 'overview-tab':
-            return dbc.Container([
-                create_kpi_cards(filtered_data),
-                dbc.Row([
-                    dbc.Col(create_sales_summary(filtered_data), md=12)
-                ], className="mb-4")
-            ], fluid=True)
-        elif active_tab == 'sales-tab':
-            return create_sales_summary(filtered_data)
-        elif active_tab == 'products-tab':
-            return create_product_summary(filtered_data)
-        elif active_tab == 'customers-tab':
-            return create_customer_summary(filtered_data)
-        elif active_tab == 'geography-tab':
-            return create_geographic_summary(filtered_data)
-    except Exception as e:
-        logger.error(f"Error updating tab content: {e}")
-        return html.Div(f"Error loading content: {str(e)}")
+        logger.info(f"Updating tab content: {active_tab}")
+        
+        if filtered_data is None:
+            logger.warning("No filtered data available")
+            return html.Div("No data available. Please check data loading.")
 
+        try:
+            df = pd.read_json(filtered_data, orient='split')
+            if active_tab == 'overview-tab':
+                return dbc.Container([
+                    create_kpi_cards(filtered_data),
+                    dbc.Row([
+                        dbc.Col(create_sales_summary(filtered_data), md=12)
+                    ], className="mb-4")
+                ], fluid=True)
+            elif active_tab == 'sales-tab':
+                return create_sales_summary(filtered_data)
+            elif active_tab == 'products-tab':
+                return create_product_summary(filtered_data)
+            elif active_tab == 'customers-tab':
+                return create_customer_summary(filtered_data)
+            elif active_tab == 'geography-tab':
+                return create_geographic_summary(filtered_data)
+        except Exception as e:
+            logger.error(f"Error updating tab content: {e}")
+            return html.Div(f"Error loading content: {str(e)}")
+
+    except Exception as e:
+        return error_handler.handle_callback_error(e, 'update_tab_content', {
+            'active_tab': active_tab,
+            'filtered_data': 'data_available' if filtered_data else None
+        })
 # # Callback for filtered data
 # @app.callback(
 #     Output('filtered-data-store', 'data'),

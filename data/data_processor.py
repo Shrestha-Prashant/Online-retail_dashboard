@@ -255,7 +255,7 @@ if __name__ == "__main__":
     from data_loader import RetailDataLoader
     
     # Load the actual retail data
-    loader = RetailDataLoader("data/raw/Online Retail.xlsx")
+    loader = RetailDataLoader("Online Retail.xlsx")
     raw_df = loader.load_data()
     
     if raw_df is not None:

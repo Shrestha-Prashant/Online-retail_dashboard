@@ -94,7 +94,7 @@ class RetailDataLoader:
         """Load and process data from Excel file"""
         try:
             logger.info(f"Loading data from {self.file_path}")
-            df = pd.read_excel(self.file_path)
+            df = pd.read_excel(self.file_path, parse_dates=['InvoiceDate'])
             
             # Basic cleaning
             df = df.dropna(subset=['InvoiceNo', 'Quantity', 'UnitPrice'])
@@ -260,7 +260,7 @@ class RetailDataLoader:
 # Example usage
 if __name__ == "__main__":
     # Initialize loader
-    loader = RetailDataLoader("data/raw/Online Retail.xlsx")
+    loader = RetailDataLoader("Online Retail.xlsx")
     
     # Get initial data
     df, start_date, end_date = loader.get_initial_data()
