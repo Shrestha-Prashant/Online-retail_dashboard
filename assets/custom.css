@@ -1,0 +1,309 @@
+/* Custom CSS for Online Retail Dashboard */
+
+/* Color Variables */
+:root {
+    --primary-color: #2C3E50;
+    --secondary-color: #E74C3C;
+    --accent-color: #3498DB;
+    --success-color: #2ECC71;
+    --warning-color: #F1C40F;
+    --danger-color: #E74C3C;
+    --info-color: #3498DB;
+    --light-color: #F8F9FA;
+    --dark-color: #343A40;
+    --text-primary: #2C3E50;
+    --text-secondary: #6C757D;
+    --border-color: #DEE2E6;
+    --hover-color: #ECF0F1;
+}
+
+/* Global Styles */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: var(--text-primary);
+    background-color: var(--light-color);
+}
+
+/* Navbar Styling */
+.navbar {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    background: linear-gradient(to right, var(--primary-color), var(--dark-color));
+}
+
+.navbar-brand {
+    font-weight: 600;
+    color: white !important;
+}
+
+/* Card Styling */
+.card {
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease-in-out;
+    background: white;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+.card-header {
+    background-color: white;
+    border-bottom: 1px solid var(--border-color);
+    padding: 1rem 1.25rem;
+    font-weight: 600;
+}
+
+/* KPI Cards */
+.kpi-card {
+    padding: 1.5rem;
+    text-align: center;
+    min-height: 140px;
+}
+
+.kpi-card .value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
+.kpi-card .label {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Tab Styling */
+.nav-tabs {
+    border-bottom: 2px solid var(--border-color);
+}
+
+.nav-tabs .nav-link {
+    border: none;
+    color: var(--text-secondary);
+    padding: 0.75rem 1.25rem;
+    font-weight: 500;
+    transition: color 0.2s ease-in-out;
+}
+
+.nav-tabs .nav-link:hover {
+    color: var(--primary-color);
+    border: none;
+}
+
+.nav-tabs .nav-link.active {
+    color: var(--primary-color);
+    border: none;
+    border-bottom: 2px solid var(--primary-color);
+    background-color: transparent;
+}
+
+/* Filter Section */
+.filter-section {
+    background-color: white;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+}
+
+.date-picker {
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 0.5rem;
+}
+
+/* Chart Container */
+.chart-container {
+    padding: 1rem;
+    background-color: white;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+}
+
+/* Table Styling */
+.table {
+    width: 100%;
+    margin-bottom: 1rem;
+    background-color: transparent;
+}
+
+.table th {
+    border-top: none;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.table td {
+    vertical-align: middle;
+    color: var(--text-primary);
+}
+
+/* Loading Animation */
+.loading-spinner {
+    display: inline-block;
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border-color);
+    border-radius: 50%;
+    border-top-color: var(--primary-color);
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Button Styling */
+.btn-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.btn-primary:hover {
+    background-color: #34495E;
+    border-color: #34495E;
+}
+
+/* Dropdown Styling */
+.dropdown-menu {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border: none;
+    border-radius: 4px;
+}
+
+.dropdown-item:hover {
+    background-color: var(--hover-color);
+}
+
+/* Alert Styling */
+.alert {
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.alert-danger {
+    background-color: #FDEDEC;
+    color: var(--danger-color);
+}
+
+.alert-success {
+    background-color: #E8F8F5;
+    color: var(--success-color);
+}
+
+/* Footer Styling */
+.footer {
+    background-color: white;
+    padding: 1rem 0;
+    border-top: 1px solid var(--border-color);
+    margin-top: auto;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .kpi-card {
+        margin-bottom: 1rem;
+    }
+    
+    .card {
+        margin-bottom: 1rem;
+    }
+    
+    .nav-tabs .nav-link {
+        padding: 0.5rem 0.75rem;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .card {
+        box-shadow: none;
+        border: 1px solid var(--border-color);
+    }
+    
+    .no-print {
+        display: none !important;
+    }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--light-color);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+}
+
+/* Tooltip Styling */
+.tooltip {
+    font-size: 0.8rem;
+}
+
+.tooltip-inner {
+    background-color: var(--dark-color);
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Chart Legend Styling */
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    margin-right: 0.5rem;
+}
+
+/* Date Picker Custom Styling */
+.DateInput {
+    border-radius: 4px;
+}
+
+.DateInput_input {
+    font-size: 0.9rem;
+    padding: 0.5rem;
+}
+
+.DateRangePickerInput {
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+}
+
+/* Custom Toggle Switch */
+.custom-switch {
+    padding-left: 2.25rem;
+}
+
+.custom-switch .custom-control-label::before {
+    height: 1.5rem;
+    width: 2.75rem;
+    border-radius: 1rem;
+}
+
+.custom-switch .custom-control-label::after {
+    height: calc(1.5rem - 4px);
+    width: calc(1.5rem - 4px);
+    border-radius: 50%;
+}
