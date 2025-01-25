@@ -31,12 +31,21 @@ monitor = DashboardMonitor(callback_logger)
 error_handler = DashboardErrorHandler(logger)
 
 # Initialize the data loader
-DATA_PATH = '/Users/panda/Documents/data_mining/Online-Retail-Dashboard/Online Retail.xlsx'
+DATA_PATH = '/Users/panda/Documents/data_mining/Online-Retail-Dashboard/Online_Retail.xlsx'
+print(DATA_PATH)
 CACHE_DIR = 'data/processed'
 loader = RetailDataLoader(DATA_PATH, CACHE_DIR)
+print("RetailDataLoader crossed")
 
-@cache.memoize(timeout=3600)
-@cache.memoize(timeout=3600)
+def make_cache_key():
+    """Generate a unique cache key based on the data file's modification time"""
+    data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Online_Retail.xlsx')
+    if os.path.exists(data_path):
+        mtime = os.path.getmtime(data_path)
+        return f'retail_data_{mtime}'
+    return 'retail_data_default'
+
+@cache.memoize(timeout=3600, make_name=make_cache_key)
 def load_initial_data():
     try:
         logger.info("Loading initial data...")
@@ -59,8 +68,6 @@ if not df.empty:
     initial_filtered_data = df.to_json(date_format='iso', orient='split')
 else:
     initial_filtered_data = None
-# # Load initial data
-# df, start_date, end_date = load_initial_data()
 
 # Define the navbar
 navbar = dbc.Navbar(
@@ -200,56 +207,6 @@ def update_tab_content(active_tab, filtered_data):
             'active_tab': active_tab,
             'filtered_data': 'data_available' if filtered_data else None
         })
-# # Callback for filtered data
-# @app.callback(
-#     Output('filtered-data-store', 'data'),
-#     [Input('date-filter', 'start_date'),
-#      Input('date-filter', 'end_date'),
-#      Input('country-filter', 'value'),
-#      Input('category-filter', 'value'),
-#      Input('last-30-days', 'n_clicks'),
-#      Input('last-quarter', 'n_clicks'),
-#      Input('ytd', 'n_clicks'),
-#      Input('all-time', 'n_clicks')]
-# )
-# def update_filtered_data(start_date, end_date, countries, categories, 
-#                         last_30_days, last_quarter, ytd, all_time):
-#     """Update filtered data based on selections"""
-#     ctx = dash.callback_context
-#     if not ctx.triggered:
-#         return dash.no_update
-
-#     df = load_initial_data()[0]
-#     if df.empty:
-#         return None
-        
-#     # Handle quick date range buttons
-#     if ctx.triggered:
-#         button_id = ctx.triggered[0]['prop_id'].split('.')[0]
-#         if button_id == 'last-30-days':
-#             end_date = df['InvoiceDate'].max()
-#             start_date = end_date - pd.Timedelta(days=30)
-#         elif button_id == 'last-quarter':
-#             end_date = df['InvoiceDate'].max()
-#             start_date = end_date - pd.Timedelta(days=90)
-#         elif button_id == 'ytd':
-#             end_date = df['InvoiceDate'].max()
-#             start_date = end_date.replace(month=1, day=1)
-#         elif button_id == 'all-time':
-#             start_date = df['InvoiceDate'].min()
-#             end_date = df['InvoiceDate'].max()
-    
-#     # Apply filters
-#     mask = (df['InvoiceDate'] >= start_date) & (df['InvoiceDate'] <= end_date)
-    
-#     if countries and len(countries) > 0:
-#         mask &= df['Country'].isin(countries)
-    
-#     if categories and len(categories) > 0 and 'Category' in df.columns:
-#         mask &= df['Category'].isin(categories)
-    
-#     filtered_df = df[mask]
-#     return filtered_df.to_json(date_format='iso', orient='split')
 
 @app.callback(
     Output('filtered-data-store', 'data', allow_duplicate=True),

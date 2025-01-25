@@ -168,7 +168,7 @@ if __name__ == "__main__":
     from ..data.data_loader import RetailDataLoader
     
     # Load and process the data
-    loader = RetailDataLoader("data/raw/Online Retail.xlsx")
+    loader = RetailDataLoader("data/raw/Online_Retail.xlsx")
     df = loader.process_data()
     
     # Create the KPI cards

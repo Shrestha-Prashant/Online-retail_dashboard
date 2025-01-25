@@ -72,33 +72,32 @@ def calculate_rfm_scores(df: pd.DataFrame) -> pd.DataFrame:
     
     def score_values(series: pd.Series, ascending: bool = True) -> pd.Series:
         """
-        Score values from 1-5 using percentile method with robust handling of duplicates
-        """
-        if len(series.unique()) < 5:
-            # If we have fewer unique values than desired scores,
-            # use a simpler ranking method
-            ranks = series.rank(method='dense', ascending=ascending)
-            max_rank = ranks.max()
-            scores = (((ranks - 1) / (max_rank - 1)) * 4 + 1).round()
-            return scores.clip(1, 5).astype(int)
+        Score values from 1-5 using rank-based method to handle duplicate values
         
-        try:
-            # Try regular percentile-based scoring
-            if ascending:
-                scores = pd.qcut(series, q=5, labels=[1, 2, 3, 4, 5])
-            else:
-                scores = pd.qcut(-series, q=5, labels=[5, 4, 3, 2, 1])
-            return scores.astype(int)
-        except ValueError:
-            # If qcut fails due to duplicates, use rank-based method
-            ranks = series.rank(pct=True, ascending=ascending)
-            # Convert ranks to scores (1-5)
-            scores = pd.qcut(ranks, q=5, labels=[1, 2, 3, 4, 5], duplicates='drop')
-            # Fill any missing values with median score
-            scores = scores.fillna(3)
-            return scores.astype(int)
+        Args:
+            series: Series of values to score
+            ascending: Whether higher values should get higher scores
+            
+        Returns:
+            Series of integer scores from 1-5
+        """
+        # Handle null values
+        if series.isna().any():
+            series = series.fillna(series.median())
+            
+        # Use rank method to handle ties
+        ranks = series.rank(method='first', ascending=ascending, pct=True)
+        
+        # Convert percentile ranks to scores 1-5
+        scores = pd.Series(1, index=series.index)  # Default score 1
+        scores[ranks > 0.2] = 2
+        scores[ranks > 0.4] = 3
+        scores[ranks > 0.6] = 4
+        scores[ranks > 0.8] = 5
+        
+        return scores.astype(int)
     
-    # Calculate scores
+    # Calculate scores with proper handling of directionality
     rfm['R_Score'] = score_values(rfm['Recency'], ascending=False)  # Lower recency is better
     rfm['F_Score'] = score_values(rfm['Frequency'], ascending=True)  # Higher frequency is better
     rfm['M_Score'] = score_values(rfm['Monetary'], ascending=True)   # Higher monetary is better
@@ -264,13 +263,13 @@ def create_rfm_distribution_chart(rfm_df: pd.DataFrame) -> dbc.Card:
     fig = make_subplots(
         rows=2, cols=2,
         subplot_titles=(
-            'Customer Segments Distribution',
-            'RFM Score Distribution',
-            'Average Customer Value by Segment',
-            'Segment Size vs Value'
+            'Distribution of Customer Segments',  
+        'Average RFM Component Scores',       
+        'Average Customer Value by Segment (£)', 
+        'Segment Analysis: Size vs Value' 
         ),
-        vertical_spacing=0.15,
-        horizontal_spacing=0.1
+        vertical_spacing=0.25,
+        horizontal_spacing=0.15
     )
     
     # 1. Customer Segments Distribution
@@ -371,7 +370,7 @@ def create_rfm_distribution_chart(rfm_df: pd.DataFrame) -> dbc.Card:
         ])
     )
 
-def create_lifecycle_chart(customer_metrics: pd.DataFrame, metric: str = 'revenue') -> dbc.Card:
+def create_lifecycle_chart(customer_metrics: pd.DataFrame, metric: str = 'Revenue') -> dbc.Card:
     """
     Create customer lifecycle visualization using rank-based grouping
     """
@@ -395,7 +394,7 @@ def create_lifecycle_chart(customer_metrics: pd.DataFrame, metric: str = 'revenu
         y_values = customer_metrics['Orders']
         y_title = 'Number of Orders'
         hover_template = 'Age Group: %{x}<br>Orders: %{y:,.0f}<extra></extra>'
-    elif metric == 'revenue':
+    elif metric == 'Revenue':
         y_values = customer_metrics['Revenue']
         y_title = 'Total Revenue (£)'
         hover_template = 'Age Group: %{x}<br>Revenue: £%{y:,.2f}<extra></extra>'
@@ -498,30 +497,37 @@ def create_cohort_chart(cohort_data: pd.DataFrame, metric: str = 'retention') ->
     # Update layout
     title_text = {
         'retention': 'Customer Retention by Cohort',
-        'revenue': 'Revenue by Cohort',
+        'Revenue': 'Revenue by Cohort',
         'frequency': 'Purchase Frequency by Cohort'
     }.get(metric, 'Cohort Analysis')
     
+    # fig.update_layout(
+    #     title=title_text,
+    #     template=plot_template,
+    #     xaxis_title='Months Since First Purchase',
+    #     yaxis_title='Cohort',
+    #     margin=dict(l=80, r=40, t=80, b=60),
+    #     height=600
+    # )
     fig.update_layout(
-        title=title_text,
-        template=plot_template,
-        xaxis_title='Months Since First Purchase',
-        yaxis_title='Cohort',
-        margin=dict(l=80, r=40, t=80, b=60),
-        height=600
-    )
-    
+    title=title_text,
+    template=plot_template,
+    xaxis_title='Months Since First Purchase',
+    yaxis_title='Customer Cohort',  # Changed from 'Cohort'
+    margin=dict(l=80, r=40, t=100, b=60),  # Changed t=80 to t=100
+    height=600
+)
     return dbc.Card(
         dbc.CardBody([
             dcc.Graph(figure=fig)
         ])
     )
 
-def create_segment_chart(segment_metrics: pd.DataFrame, metric: str = 'revenue') -> dbc.Card:
+def create_segment_chart(segment_metrics: pd.DataFrame, metric: str = 'Revenue') -> dbc.Card:
     """
     Create customer segmentation analysis visualization
     """
-    if metric == 'revenue':
+    if metric == 'Revenue':
         y_values = segment_metrics['TotalAmount']
         y_title = 'Revenue (£)'
         hover_template = 'Segment: %{x}<br>Revenue: £%{y:,.2f}<extra></extra>'
@@ -638,32 +644,34 @@ def create_customer_details_table(metrics: Dict[str, Any]) -> dbc.Card:
     )
 
 def get_cohort_data(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Calculate cohort analysis data
-    """
-    # Ensure InvoiceDate is datetime
+    """Calculate cohort analysis data"""
+    # Ensure datetime
+    df = df.copy()
     df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'])
     
-    # Get customer's first purchase month
+    # Get first purchase month for each customer
     customer_first_purchase = df.groupby('CustomerID')['InvoiceDate'].min().reset_index()
-    customer_first_purchase['CohortMonth'] = customer_first_purchase['InvoiceDate'].dt.to_period('M')
+    customer_first_purchase['CohortMonth'] = customer_first_purchase['InvoiceDate'].dt.strftime('%Y-%m')
     
-    # Merge with main dataframe
+    # Merge cohort month back to main df
     df = df.merge(customer_first_purchase[['CustomerID', 'CohortMonth']], on='CustomerID')
     
-    # Calculate months since first purchase
-    df['MonthsFromFirstPurchase'] = ((df['InvoiceDate'].dt.to_period('M') - 
-                                     df['CohortMonth']).astype(int))
+    # Calculate difference in months
+    df['PurchaseMonth'] = df['InvoiceDate'].dt.strftime('%Y-%m')
+    df['MonthIndex'] = ((pd.to_datetime(df['PurchaseMonth']) - 
+                        pd.to_datetime(df['CohortMonth'])).dt.days // 30)
     
     # Create cohort matrix
-    cohort_data = pd.crosstab(df['CohortMonth'], 
-                             df['MonthsFromFirstPurchase'],
-                             values=df['CustomerID'],
-                             aggfunc='nunique')
+    cohort_matrix = pd.crosstab(
+        df['CohortMonth'],
+        df['MonthIndex'],
+        values=df['CustomerID'],
+        aggfunc='nunique'
+    )
     
     # Calculate retention percentages
-    cohort_sizes = cohort_data[0]
-    cohort_data = cohort_data.div(cohort_sizes, axis=0) * 100
+    cohort_sizes = cohort_matrix[0]
+    cohort_data = cohort_matrix.div(cohort_sizes, axis=0) * 100
     
     return cohort_data
 
@@ -687,67 +695,55 @@ def get_segment_metrics(df: pd.DataFrame, rfm_data: pd.DataFrame) -> pd.DataFram
         'CustomerID': 'nunique',
         'Quantity': 'sum'
     }).reset_index()
+from io import StringIO
+def score_percentile(series: pd.Series) -> pd.Series:
+    """Convert values to percentile-based scores 1-5"""
+    ranks = series.rank(pct=True)
+    scores = pd.Series(1, index=series.index)
+    scores[ranks > 0.2] = 2
+    scores[ranks > 0.4] = 3
+    scores[ranks > 0.6] = 4
+    scores[ranks > 0.8] = 5
+    return scores
 
 @cache.memoize(timeout=300)
 def create_customer_summary(filtered_data: str) -> dbc.Container:
-    """
-    Create a container with all customer-related charts
-    """
-    df = pd.read_json(filtered_data, orient='split')
+    """Create customer analysis dashboard"""
+    df = pd.read_json(StringIO(filtered_data), orient='split')
     df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'])
     
-    # Calculate RFM scores and segments
     rfm_data = calculate_rfm_scores(df)
     
-    # Calculate customer metrics with robust binning
     customer_metrics = df.groupby('CustomerID').agg({
-        'InvoiceDate': lambda x: (x.max() - x.min()).days,  # Customer age
-        'InvoiceNo': 'nunique',  # Number of orders
-        'TotalAmount': 'sum',    # Total revenue
+        'InvoiceDate': lambda x: (x.max() - x.min()).days,
+        'InvoiceNo': 'nunique',
+        'TotalAmount': 'sum'
     }).reset_index()
     
     customer_metrics.columns = ['CustomerID', 'Age', 'Orders', 'Revenue']
     customer_metrics['OrderFrequency'] = customer_metrics['Orders'] / customer_metrics['Age']
     
-    # Handle age binning explicitly here
-    try:
-        customer_metrics['AgeBin'] = pd.qcut(
-            customer_metrics['Age'],
-            q=5,
-            labels=['0-20%', '20-40%', '40-60%', '60-80%', '80-100%'],
-            duplicates='drop'
-        )
-    except ValueError:
-        # Fallback to rank-based binning if qcut fails
-        ranks = customer_metrics['Age'].rank(pct=True)
-        customer_metrics['AgeBin'] = pd.qcut(
-            ranks,
-            q=5,
-            labels=['0-20%', '20-40%', '40-60%', '60-80%', '80-100%']
-        )
+    # Use score_percentile instead of qcut
+    customer_metrics['AgeBin'] = score_percentile(customer_metrics['Age']).map({
+        1: '0-20%',
+        2: '20-40%',
+        3: '40-60%',
+        4: '60-80%',
+        5: '80-100%'
+    })
 
-    # Create summary container
     return dbc.Container([
         dbc.Row([
-            dbc.Col([
-                create_rfm_distribution_chart(rfm_data)
-            ], md=12, className="mb-4")
+            dbc.Col([create_rfm_distribution_chart(rfm_data)], md=12, className="mb-5")
         ]),
         dbc.Row([
-            dbc.Col([
-                create_lifecycle_chart(customer_metrics)
-            ], md=6),
-            dbc.Col([
-                create_cohort_chart(get_cohort_data(df))
-            ], md=6)
-        ], className="mb-4"),
+            dbc.Col([create_lifecycle_chart(customer_metrics)], className="mb-5", md=6),
+            dbc.Col([create_cohort_chart(get_cohort_data(df))], className="mb-5", md=6)
+        ], className="mb-5"),
         dbc.Row([
-            dbc.Col([
-                create_segment_chart(get_segment_metrics(df, rfm_data))
-            ], md=12)
+            dbc.Col([create_segment_chart(get_segment_metrics(df, rfm_data))], md=12)
         ])
     ], fluid=True)
-
 # Example usage
 if __name__ == "__main__":
     from ..data.data_loader import RetailDataLoader
