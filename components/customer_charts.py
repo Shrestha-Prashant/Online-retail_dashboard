@@ -12,10 +12,13 @@ from typing import Dict, Any
 # def calculate_rfm_scores(df: pd.DataFrame) -> pd.DataFrame:
 #     """
 #     Calculate RFM (Recency, Frequency, Monetary) scores for customers
+#     with robust handling of edge cases and duplicate values
 #     """
-#     # Calculate metrics
+#     df = df.copy()
+#     df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'])
 #     today = df['InvoiceDate'].max()
     
+#     # Calculate RFM metrics
 #     rfm = df.groupby('CustomerID').agg({
 #         'InvoiceDate': lambda x: (today - x.max()).days,  # Recency
 #         'InvoiceNo': 'nunique',                           # Frequency
@@ -24,10 +27,37 @@ from typing import Dict, Any
     
 #     rfm.columns = ['CustomerID', 'Recency', 'Frequency', 'Monetary']
     
-#     # Create score quintiles
-#     rfm['R_Score'] = pd.qcut(rfm['Recency'], q=5, labels=[5, 4, 3, 2, 1])
-#     rfm['F_Score'] = pd.qcut(rfm['Frequency'], q=5, labels=[1, 2, 3, 4, 5])
-#     rfm['M_Score'] = pd.qcut(rfm['Monetary'], q=5, labels=[1, 2, 3, 4, 5])
+#     def score_values(series: pd.Series, ascending: bool = True) -> pd.Series:
+#         """
+#         Score values from 1-5 using rank-based method to handle duplicate values
+        
+#         Args:
+#             series: Series of values to score
+#             ascending: Whether higher values should get higher scores
+            
+#         Returns:
+#             Series of integer scores from 1-5
+#         """
+#         # Handle null values
+#         if series.isna().any():
+#             series = series.fillna(series.median())
+            
+#         # Use rank method to handle ties
+#         ranks = series.rank(method='first', ascending=ascending, pct=True)
+        
+#         # Convert percentile ranks to scores 1-5
+#         scores = pd.Series(1, index=series.index)  # Default score 1
+#         scores[ranks > 0.2] = 2
+#         scores[ranks > 0.4] = 3
+#         scores[ranks > 0.6] = 4
+#         scores[ranks > 0.8] = 5
+        
+#         return scores.astype(int)
+    
+#     # Calculate scores with proper handling of directionality
+#     rfm['R_Score'] = score_values(rfm['Recency'], ascending=False)  # Lower recency is better
+#     rfm['F_Score'] = score_values(rfm['Frequency'], ascending=True)  # Higher frequency is better
+#     rfm['M_Score'] = score_values(rfm['Monetary'], ascending=True)   # Higher monetary is better
     
 #     # Calculate RFM Score
 #     rfm['RFM_Score'] = rfm['R_Score'].astype(str) + \
@@ -36,22 +66,30 @@ from typing import Dict, Any
     
 #     # Segment customers
 #     def segment_customers(row):
-#         if row['R_Score'] >= 4 and row['F_Score'] >= 4 and row['M_Score'] >= 4:
+#         r, f, m = row['R_Score'], row['F_Score'], row['M_Score']
+        
+#         if r >= 4 and f >= 4 and m >= 4:
 #             return 'Champions'
-#         elif row['R_Score'] >= 3 and row['F_Score'] >= 3 and row['M_Score'] >= 3:
+#         elif r >= 3 and f >= 3 and m >= 3:
 #             return 'Loyal Customers'
-#         elif row['R_Score'] >= 3 and row['F_Score'] >= 1 and row['M_Score'] >= 2:
+#         elif r >= 3 and f >= 1 and m >= 2:
 #             return 'Active Customers'
-#         elif row['R_Score'] >= 2 and row['F_Score'] >= 2 and row['M_Score'] >= 2:
+#         elif r >= 2 and f >= 2 and m >= 2:
 #             return 'Regular Customers'
-#         elif row['R_Score'] >= 2 and row['F_Score'] >= 1:
+#         elif r >= 2 and f >= 1:
 #             return 'New Customers'
 #         else:
 #             return 'At Risk'
     
 #     rfm['Customer_Segment'] = rfm.apply(segment_customers, axis=1)
     
+#     # Add original metrics for reference
+#     rfm['Recency_Days'] = rfm['Recency']
+#     rfm['Purchase_Frequency'] = rfm['Frequency']
+#     rfm['Total_Revenue'] = rfm['Monetary']
+    
 #     return rfm
+
 def calculate_rfm_scores(df: pd.DataFrame) -> pd.DataFrame:
     """
     Calculate RFM (Recency, Frequency, Monetary) scores for customers
@@ -70,9 +108,9 @@ def calculate_rfm_scores(df: pd.DataFrame) -> pd.DataFrame:
     
     rfm.columns = ['CustomerID', 'Recency', 'Frequency', 'Monetary']
     
-    def score_values(series: pd.Series, ascending: bool = True) -> pd.Series:
+    def robust_scoring(series: pd.Series, ascending: bool = True) -> pd.Series:
         """
-        Score values from 1-5 using rank-based method to handle duplicate values
+        More nuanced scoring method using quantile-based approach
         
         Args:
             series: Series of values to score
@@ -84,30 +122,44 @@ def calculate_rfm_scores(df: pd.DataFrame) -> pd.DataFrame:
         # Handle null values
         if series.isna().any():
             series = series.fillna(series.median())
-            
-        # Use rank method to handle ties
-        ranks = series.rank(method='first', ascending=ascending, pct=True)
         
-        # Convert percentile ranks to scores 1-5
-        scores = pd.Series(1, index=series.index)  # Default score 1
-        scores[ranks > 0.2] = 2
-        scores[ranks > 0.4] = 3
-        scores[ranks > 0.6] = 4
-        scores[ranks > 0.8] = 5
+        # Use quantile-based method for more granular scoring
+        if ascending:
+            # For metrics where higher is better (Frequency, Monetary)
+            quartiles = series.quantile([0.2, 0.4, 0.6, 0.8])
+            conditions = [
+                series <= quartiles[0.2],
+                (series > quartiles[0.2]) & (series <= quartiles[0.4]),
+                (series > quartiles[0.4]) & (series <= quartiles[0.6]),
+                (series > quartiles[0.6]) & (series <= quartiles[0.8]),
+                series > quartiles[0.8]
+            ]
+            choices = [1, 2, 3, 4, 5]
+        else:
+            # For Recency, where lower values are better
+            quartiles = series.quantile([0.2, 0.4, 0.6, 0.8])
+            conditions = [
+                series >= quartiles[0.8],
+                (series < quartiles[0.8]) & (series >= quartiles[0.6]),
+                (series < quartiles[0.6]) & (series >= quartiles[0.4]),
+                (series < quartiles[0.4]) & (series >= quartiles[0.2]),
+                series < quartiles[0.2]
+            ]
+            choices = [1, 2, 3, 4, 5]
         
-        return scores.astype(int)
+        return pd.Series(np.select(conditions, choices, default=3), index=series.index)
     
     # Calculate scores with proper handling of directionality
-    rfm['R_Score'] = score_values(rfm['Recency'], ascending=False)  # Lower recency is better
-    rfm['F_Score'] = score_values(rfm['Frequency'], ascending=True)  # Higher frequency is better
-    rfm['M_Score'] = score_values(rfm['Monetary'], ascending=True)   # Higher monetary is better
+    rfm['R_Score'] = robust_scoring(rfm['Recency'], ascending=False)  # Lower recency is better
+    rfm['F_Score'] = robust_scoring(rfm['Frequency'], ascending=True)  # Higher frequency is better
+    rfm['M_Score'] = robust_scoring(rfm['Monetary'], ascending=True)   # Higher monetary is better
     
     # Calculate RFM Score
     rfm['RFM_Score'] = rfm['R_Score'].astype(str) + \
                        rfm['F_Score'].astype(str) + \
                        rfm['M_Score'].astype(str)
     
-    # Segment customers
+    # Segment customers (keep previous segmentation logic)
     def segment_customers(row):
         r, f, m = row['R_Score'], row['F_Score'], row['M_Score']
         
@@ -133,125 +185,9 @@ def calculate_rfm_scores(df: pd.DataFrame) -> pd.DataFrame:
     
     return rfm
 
-
-# def create_rfm_distribution_chart(rfm_df: pd.DataFrame) -> dbc.Card:
-#     """
-#     Create RFM distribution visualization
-#     """
-#     # Create subplots with 2 rows
-#     fig = make_subplots(
-#         rows=2, cols=2,
-#         subplot_titles=(
-#             'Customer Segments Distribution',
-#             'RFM Score Distribution',
-#             'Average Customer Value by Segment',
-#             'Segment Size vs Value'
-#         ),
-#         vertical_spacing=0.15,
-#         horizontal_spacing=0.1
-#     )
-    
-#     # 1. Customer Segments Distribution
-#     segment_dist = rfm_df['Customer_Segment'].value_counts()
-#     fig.add_trace(
-#         go.Bar(
-#             x=segment_dist.index,
-#             y=segment_dist.values,
-#             name='Customers',
-#             marker_color=chart_colors[0],
-#             hovertemplate='Segment: %{x}<br>Customers: %{y:,.0f}<extra></extra>'
-#         ),
-#         row=1, col=1
-#     )
-    
-#     # 2. RFM Score Distribution
-#     rfm_scores = pd.DataFrame({
-#         'Score': ['R', 'F', 'M'],
-#         'Average': [
-#             rfm_df['R_Score'].mean(),
-#             rfm_df['F_Score'].mean(),
-#             rfm_df['M_Score'].mean()
-#         ]
-#     })
-#     fig.add_trace(
-#         go.Bar(
-#             x=rfm_scores['Score'],
-#             y=rfm_scores['Average'],
-#             name='Avg Score',
-#             marker_color=chart_colors[1],
-#             hovertemplate='Component: %{x}<br>Average Score: %{y:.2f}<extra></extra>'
-#         ),
-#         row=1, col=2
-#     )
-    
-#     # 3. Average Value by Segment
-#     avg_value = rfm_df.groupby('Customer_Segment')['Monetary'].mean().round(2)
-#     fig.add_trace(
-#         go.Bar(
-#             x=avg_value.index,
-#             y=avg_value.values,
-#             name='Avg Value',
-#             marker_color=chart_colors[2],
-#             hovertemplate='Segment: %{x}<br>Average Value: £%{y:,.2f}<extra></extra>'
-#         ),
-#         row=2, col=1
-#     )
-    
-#     # 4. Segment Size vs Value
-#     segment_metrics = rfm_df.groupby('Customer_Segment').agg({
-#         'CustomerID': 'count',
-#         'Monetary': 'mean'
-#     }).reset_index()
-    
-#     fig.add_trace(
-#         go.Scatter(
-#             x=segment_metrics['CustomerID'],
-#             y=segment_metrics['Monetary'],
-#             mode='markers+text',
-#             name='Segments',
-#             text=segment_metrics['Customer_Segment'],
-#             textposition='top center',
-#             marker=dict(
-#                 size=15,
-#                 color=chart_colors[3],
-#                 line=dict(width=2, color='DarkSlateGrey')
-#             ),
-#             hovertemplate='Segment: %{text}<br>Customers: %{x:,.0f}<br>Avg Value: £%{y:,.2f}<extra></extra>'
-#         ),
-#         row=2, col=2
-#     )
-    
-#     # Update layout
-#     fig.update_layout(
-#         title_text='RFM Analysis Overview',
-#         template=plot_template,
-#         showlegend=False,
-#         height=800,
-#         margin=dict(l=60, r=40, t=100, b=60)
-#     )
-    
-#     # Update axes labels
-#     fig.update_xaxes(title_text='Customer Segment', row=1, col=1)
-#     fig.update_yaxes(title_text='Number of Customers', row=1, col=1)
-    
-#     fig.update_xaxes(title_text='RFM Component', row=1, col=2)
-#     fig.update_yaxes(title_text='Average Score', row=1, col=2)
-    
-#     fig.update_xaxes(title_text='Customer Segment', row=2, col=1)
-#     fig.update_yaxes(title_text='Average Customer Value (£)', row=2, col=1)
-    
-#     fig.update_xaxes(title_text='Number of Customers', row=2, col=2)
-#     fig.update_yaxes(title_text='Average Customer Value (£)', row=2, col=2)
-    
-#     return dbc.Card(
-#         dbc.CardBody([
-#             dcc.Graph(figure=fig)
-#         ])
-#     )
-
-def create_rfm_distribution_chart(rfm_df: pd.DataFrame) -> dbc.Card:
+def create_rfm_distribution_chart(rfm_df: pd.DataFrame, customer_metrics: pd.DataFrame) -> dbc.Card:
     """
-    Create RFM distribution visualization
+    Create comprehensive RFM distribution visualization
     """
     # Convert categorical scores to numeric
     rfm_df = rfm_df.copy()
@@ -259,17 +195,17 @@ def create_rfm_distribution_chart(rfm_df: pd.DataFrame) -> dbc.Card:
     rfm_df['F_Score'] = rfm_df['F_Score'].astype(int)
     rfm_df['M_Score'] = rfm_df['M_Score'].astype(int)
     
-    # Create subplots with 2 rows
+    # Create subplots with 2 rows and 2 columns
     fig = make_subplots(
         rows=2, cols=2,
         subplot_titles=(
             'Distribution of Customer Segments',  
-        'Average RFM Component Scores',       
-        'Average Customer Value by Segment (£)', 
-        'Segment Analysis: Size vs Value' 
+            'Average RFM Component Scores',       
+            'Segment Analysis: Size vs Sales Value',
+            'Customer Lifecycle Analysis'
         ),
-        vertical_spacing=0.25,
-        horizontal_spacing=0.15
+        vertical_spacing=0.2,
+        horizontal_spacing=0.1
     )
     
     # 1. Customer Segments Distribution
@@ -305,20 +241,7 @@ def create_rfm_distribution_chart(rfm_df: pd.DataFrame) -> dbc.Card:
         row=1, col=2
     )
     
-    # 3. Average Value by Segment
-    avg_value = rfm_df.groupby('Customer_Segment')['Monetary'].mean().round(2)
-    fig.add_trace(
-        go.Bar(
-            x=avg_value.index,
-            y=avg_value.values,
-            name='Avg Value',
-            marker_color=chart_colors[2],
-            hovertemplate='Segment: %{x}<br>Average Value: £%{y:,.2f}<extra></extra>'
-        ),
-        row=2, col=1
-    )
-    
-    # 4. Segment Size vs Value
+    # 3. Segment Size vs Sales Value
     segment_metrics = rfm_df.groupby('Customer_Segment').agg({
         'CustomerID': 'count',
         'Monetary': 'mean'
@@ -337,18 +260,89 @@ def create_rfm_distribution_chart(rfm_df: pd.DataFrame) -> dbc.Card:
                 color=chart_colors[3],
                 line=dict(width=2, color='DarkSlateGrey')
             ),
-            hovertemplate='Segment: %{text}<br>Customers: %{x:,.0f}<br>Avg Value: £%{y:,.2f}<extra></extra>'
+            hovertemplate='Segment: %{text}<br>Customers: %{x:,.0f}<br>Avg Sales: £%{y:,.2f}<extra></extra>'
+        ),
+        row=2, col=1
+    )
+    
+    # 4. Customer Lifecycle Analysis
+    # Create age groups using rank-based method
+    ranks = customer_metrics['Age'].rank(method='dense')
+    max_rank = ranks.max()
+    
+    def get_percentile_label(rank):
+        pct = (rank - 1) / (max_rank - 1) * 100
+        if pct <= 20: return '0-20%'
+        elif pct <= 40: return '20-40%'
+        elif pct <= 60: return '40-60%'
+        elif pct <= 80: return '60-80%'
+        else: return '80-100%'
+    
+    customer_metrics['AgeBin'] = ranks.map(get_percentile_label)
+    
+    # Calculate metrics by age bin for sales
+    lifecycle_data = customer_metrics.groupby('AgeBin').agg({
+        'Revenue': ['mean', 'count']
+    }).reset_index()
+    
+    # Sort the bins in correct order
+    bin_order = ['0-20%', '20-40%', '40-60%', '60-80%', '80-100%']
+    lifecycle_data['AgeBin'] = pd.Categorical(
+        lifecycle_data['AgeBin'], 
+        categories=bin_order, 
+        ordered=True
+    )
+    lifecycle_data = lifecycle_data.sort_values('AgeBin')
+    
+    # Add bars for sales values (primary Y-axis)
+    fig.add_trace(
+        go.Bar(
+            x=lifecycle_data['AgeBin'],
+            y=lifecycle_data[('Revenue', 'mean')],
+            name='Average Sales',
+            marker_color=chart_colors[0],
+            yaxis='y3',
+            hovertemplate='Age Group: %{x}<br>Avg Sales: £%{y:,.2f}<extra></extra>'
+        ),
+        row=2, col=2
+    )
+    
+    # Add line for customer count (secondary Y-axis)
+    fig.add_trace(
+        go.Scatter(
+            x=lifecycle_data['AgeBin'],
+            y=lifecycle_data[('Revenue', 'count')],
+            name='Customer Count',
+            mode='lines+markers',
+            line=dict(color=chart_colors[1], width=2),
+            marker=dict(size=8),
+            yaxis='y4',
+            hovertemplate='Age Group: %{x}<br>Customers: %{y:,.0f}<extra></extra>'
         ),
         row=2, col=2
     )
     
     # Update layout
     fig.update_layout(
-        title_text='RFM Analysis Overview',
+        title_text='Customer Analysis Overview',
         template=plot_template,
         showlegend=False,
         height=800,
-        margin=dict(l=60, r=40, t=100, b=60)
+        margin=dict(l=60, r=40, t=100, b=60),
+        yaxis3=dict(
+            title='Average Sales (£)',
+            titlefont=dict(color=chart_colors[0]),
+            tickfont=dict(color=chart_colors[0]),
+            anchor='x4'
+        ),
+        yaxis4=dict(
+            title='Number of Customers',
+            titlefont=dict(color=chart_colors[1]),
+            tickfont=dict(color=chart_colors[1]),
+            anchor='x4',
+            overlaying='y3',
+            side='right'
+        )
     )
     
     # Update axes labels
@@ -358,11 +352,11 @@ def create_rfm_distribution_chart(rfm_df: pd.DataFrame) -> dbc.Card:
     fig.update_xaxes(title_text='RFM Component', row=1, col=2)
     fig.update_yaxes(title_text='Average Score', row=1, col=2)
     
-    fig.update_xaxes(title_text='Customer Segment', row=2, col=1)
-    fig.update_yaxes(title_text='Average Customer Value (£)', row=2, col=1)
+    fig.update_xaxes(title_text='Number of Customers', row=2, col=1)
+    fig.update_yaxes(title_text='Average Sales by Customer (£)', row=2, col=1)
     
-    fig.update_xaxes(title_text='Number of Customers', row=2, col=2)
-    fig.update_yaxes(title_text='Average Customer Value (£)', row=2, col=2)
+    fig.update_xaxes(title_text='Customer Age Group', row=2, col=2)
+    fig.update_yaxes(title_text='No of Orders', row=2, col=2)
     
     return dbc.Card(
         dbc.CardBody([
@@ -370,7 +364,7 @@ def create_rfm_distribution_chart(rfm_df: pd.DataFrame) -> dbc.Card:
         ])
     )
 
-def create_lifecycle_chart(customer_metrics: pd.DataFrame, metric: str = 'Revenue') -> dbc.Card:
+def create_customer_lifecycle_chart(customer_metrics: pd.DataFrame) -> go.Figure:
     """
     Create customer lifecycle visualization using rank-based grouping
     """
@@ -389,23 +383,9 @@ def create_lifecycle_chart(customer_metrics: pd.DataFrame, metric: str = 'Revenu
     
     customer_metrics['AgeBin'] = ranks.map(get_percentile_label)
     
-    # Set up metric-specific variables
-    if metric == 'orders':
-        y_values = customer_metrics['Orders']
-        y_title = 'Number of Orders'
-        hover_template = 'Age Group: %{x}<br>Orders: %{y:,.0f}<extra></extra>'
-    elif metric == 'Revenue':
-        y_values = customer_metrics['Revenue']
-        y_title = 'Total Revenue (£)'
-        hover_template = 'Age Group: %{x}<br>Revenue: £%{y:,.2f}<extra></extra>'
-    else:  # frequency
-        y_values = customer_metrics['OrderFrequency']
-        y_title = 'Order Frequency (orders/day)'
-        hover_template = 'Age Group: %{x}<br>Frequency: %{y:.2f}<extra></extra>'
-    
-    # Calculate metrics by age bin
+    # Calculate metrics by age bin for sales
     lifecycle_data = customer_metrics.groupby('AgeBin').agg({
-        metric: ['mean', 'count']
+        'Revenue': ['mean', 'count']
     }).reset_index()
     
     # Sort the bins in correct order
@@ -420,22 +400,23 @@ def create_lifecycle_chart(customer_metrics: pd.DataFrame, metric: str = 'Revenu
     # Create the figure
     fig = go.Figure()
     
-    # Add bars for metric values
+    # Add bars for sales values (primary Y-axis)
     fig.add_trace(
         go.Bar(
             x=lifecycle_data['AgeBin'],
-            y=lifecycle_data[(metric, 'mean')],
-            name=y_title,
+            y=lifecycle_data[('Revenue', 'mean')],
+            name='Average Sales',
             marker_color=chart_colors[0],
-            hovertemplate=hover_template
+            yaxis='y1',
+            hovertemplate='Age Group: %{x}<br>Avg Sales: £%{y:,.2f}<extra></extra>'
         )
     )
     
-    # Add line for customer count
+    # Add line for customer count (secondary Y-axis)
     fig.add_trace(
         go.Scatter(
             x=lifecycle_data['AgeBin'],
-            y=lifecycle_data[(metric, 'count')],
+            y=lifecycle_data[('Revenue', 'count')],
             name='Customer Count',
             mode='lines+markers',
             line=dict(color=chart_colors[1], width=2),
@@ -445,13 +426,10 @@ def create_lifecycle_chart(customer_metrics: pd.DataFrame, metric: str = 'Revenu
         )
     )
     
-    # Update layout
+    # Update layout with dual Y-axes
     fig.update_layout(
-        title='Customer Lifecycle Analysis',
-        template=plot_template,
-        xaxis_title='Customer Age Group',
-        yaxis=dict(
-            title=y_title,
+        yaxis1=dict(
+            title='Average Sales (£)',
             titlefont=dict(color=chart_colors[0]),
             tickfont=dict(color=chart_colors[0])
         ),
@@ -462,24 +440,10 @@ def create_lifecycle_chart(customer_metrics: pd.DataFrame, metric: str = 'Revenu
             anchor='x',
             overlaying='y',
             side='right'
-        ),
-        showlegend=True,
-        legend=dict(
-            orientation='h',
-            yanchor='bottom',
-            y=1.02,
-            xanchor='right',
-            x=1
-        ),
-        margin=dict(l=60, r=60, t=80, b=60),
-        height=500
+        )
     )
     
-    return dbc.Card(
-        dbc.CardBody([
-            dcc.Graph(figure=fig)
-        ])
-    )
+    return fig
 
 def create_cohort_chart(cohort_data: pd.DataFrame, metric: str = 'retention') -> dbc.Card:
     """
@@ -523,14 +487,14 @@ def create_cohort_chart(cohort_data: pd.DataFrame, metric: str = 'retention') ->
         ])
     )
 
-def create_segment_chart(segment_metrics: pd.DataFrame, metric: str = 'Revenue') -> dbc.Card:
+def create_segment_chart(segment_metrics: pd.DataFrame, metric: str = 'Sales') -> dbc.Card:
     """
-    Create customer segmentation analysis visualization
+    Create customer segmentation analysis visualization with sales focus
     """
-    if metric == 'Revenue':
+    if metric == 'Sales':
         y_values = segment_metrics['TotalAmount']
-        y_title = 'Revenue (£)'
-        hover_template = 'Segment: %{x}<br>Revenue: £%{y:,.2f}<extra></extra>'
+        y_title = 'Sales (£)'
+        hover_template = 'Segment: %{x}<br>Sales: £%{y:,.2f}<extra></extra>'
     elif metric == 'orders':
         y_values = segment_metrics['InvoiceNo']
         y_title = 'Number of Orders'
@@ -564,18 +528,18 @@ def create_segment_chart(segment_metrics: pd.DataFrame, metric: str = 'Revenue')
         go.Scatter(
             x=segment_metrics['Customer_Segment'],
             y=avg_value,
-            name=f'Average {y_title} per Customer',
+            name=f'Average Sales per Customer',
             mode='lines+markers',
             line=dict(color=chart_colors[1], width=2),
             marker=dict(size=8),
             yaxis='y2',
-            hovertemplate=f'Segment: %{{x}}<br>Avg {y_title} per Customer: %{{y:.2f}}<extra></extra>'
+            hovertemplate='Segment: %{x}<br>Avg Sales per Customer: £%{y:.2f}<extra></extra>'
         )
     )
     
     # Update layout
     fig.update_layout(
-        title=f'Customer Segment Analysis by {metric.title()}',
+        title=f'Customer Segment Analysis by Sales',
         template=plot_template,
         xaxis_title='Customer Segment',
         yaxis=dict(
@@ -584,7 +548,7 @@ def create_segment_chart(segment_metrics: pd.DataFrame, metric: str = 'Revenue')
             tickfont=dict(color=chart_colors[0])
         ),
         yaxis2=dict(
-            title=f'Average {y_title} per Customer',
+            title='Average Sales per Customer',
             titlefont=dict(color=chart_colors[1]),
             tickfont=dict(color=chart_colors[1]),
             anchor='x',
@@ -643,6 +607,8 @@ def create_customer_details_table(metrics: Dict[str, Any]) -> dbc.Card:
         ])
     )
 
+
+
 def get_cohort_data(df: pd.DataFrame) -> pd.DataFrame:
     """Calculate cohort analysis data"""
     # Ensure datetime
@@ -676,16 +642,6 @@ def get_cohort_data(df: pd.DataFrame) -> pd.DataFrame:
     return cohort_data
 
 def get_segment_metrics(df: pd.DataFrame, rfm_data: pd.DataFrame) -> pd.DataFrame:
-    """
-    Calculate segment-level metrics
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        rfm_data (pd.DataFrame): RFM analysis DataFrame
-        
-    Returns:
-        pd.DataFrame: Segment metrics
-    """
     return df.merge(
         rfm_data[['CustomerID', 'Customer_Segment']], 
         on='CustomerID'
@@ -696,8 +652,8 @@ def get_segment_metrics(df: pd.DataFrame, rfm_data: pd.DataFrame) -> pd.DataFram
         'Quantity': 'sum'
     }).reset_index()
 from io import StringIO
+
 def score_percentile(series: pd.Series) -> pd.Series:
-    """Convert values to percentile-based scores 1-5"""
     ranks = series.rank(pct=True)
     scores = pd.Series(1, index=series.index)
     scores[ranks > 0.2] = 2
@@ -734,16 +690,13 @@ def create_customer_summary(filtered_data: str) -> dbc.Container:
 
     return dbc.Container([
         dbc.Row([
-            dbc.Col([create_rfm_distribution_chart(rfm_data)], md=12, className="mb-5")
+            dbc.Col([create_rfm_distribution_chart(rfm_data, customer_metrics)], md=12, className="mb-5")
         ]),
-        dbc.Row([
-            dbc.Col([create_lifecycle_chart(customer_metrics)], className="mb-5", md=6),
-            dbc.Col([create_cohort_chart(get_cohort_data(df))], className="mb-5", md=6)
-        ], className="mb-5"),
         dbc.Row([
             dbc.Col([create_segment_chart(get_segment_metrics(df, rfm_data))], md=12)
         ])
     ], fluid=True)
+
 # Example usage
 if __name__ == "__main__":
     from ..data.data_loader import RetailDataLoader

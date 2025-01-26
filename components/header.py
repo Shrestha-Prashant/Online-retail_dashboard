@@ -44,7 +44,7 @@ def create_category_filter(categories: List[str]) -> dcc.Dropdown:
     )
 
 def create_header(start_date: datetime, end_date: datetime, 
-                 countries: List[str], categories: List[str]) -> html.Div:
+                 countries: List[str]) -> html.Div:
     """
     Create the main dashboard header with filters and navigation
     """
@@ -62,13 +62,13 @@ def create_header(start_date: datetime, end_date: datetime,
                         ),
                         width="auto"
                     ),
-                    dbc.Col(
-                        html.H3(
-                            "Online Retail Dashboard",
-                            className="mb-0 text-white"
-                        ),
-                        width="auto"
-                    )
+                    # dbc.Col(
+                    #     html.H3(
+                    #         "Online Retail Dashboard",
+                    #         className="mb-0 text-white"
+                    #     ),
+                    #     width="auto"
+                    # )
                 ], align="center"),
 
                 # Navigation Links
@@ -90,23 +90,20 @@ def create_header(start_date: datetime, end_date: datetime,
         # Filters section
         dbc.Container([
             dbc.Row([
-                # Date Range Filter
+                # Date Range Filter - Now on the left
                 dbc.Col([
                     html.Label("Date Range", className="mb-2"),
                     create_date_range_filter(start_date, end_date)
                 ], md=4, className="mb-3"),
 
-                # Country Filter
+                # Spacer column to push Countries to the right
+                dbc.Col(md=4),
+
+                # Country Filter - Now on the right
                 dbc.Col([
                     html.Label("Countries", className="mb-2"),
                     create_country_filter(countries)
-                ], md=4, className="mb-3"),
-
-                # Category Filter
-                dbc.Col([
-                    html.Label("Product Categories", className="mb-2"),
-                    create_category_filter(categories)
-                ], md=4, className="mb-3")
+                ], md=4, className="mb-3 text-end"),
             ], className="g-3 mb-3"),
 
             # Quick Date Range Buttons
