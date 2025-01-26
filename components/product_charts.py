@@ -41,7 +41,7 @@ def create_top_products_chart(filtered_data: str) -> dbc.Card:
         go.Bar(
             y=top_products['Description'],
             x=top_products['TotalAmount'],
-            name='Revenue',
+            name='Sales',
             orientation='h',
             marker_color=chart_colors[0]
         )
@@ -62,10 +62,10 @@ def create_top_products_chart(filtered_data: str) -> dbc.Card:
     
     # Update layout
     fig.update_layout(
-        title='Top 10 Products by Revenue',
+        title='Top 10 Products by Sales',
         template=plot_template,
         xaxis=dict(
-            title='Revenue (£)',
+            title='Sales (£)',
             titlefont=dict(color=chart_colors[0]),
             tickfont=dict(color=chart_colors[0]),
             side='bottom'
@@ -128,9 +128,9 @@ def create_product_trends_chart(filtered_data: str) -> dbc.Card:
             go.Scatter(
                 x=monthly_trends['MonthYear'],
                 y=monthly_trends['TotalAmount'],
-                name='Revenue',
+                name='Sales',
                 line=dict(color=chart_colors[0], width=2),
-                hovertemplate='Revenue: £%{y:,.2f}<extra></extra>'
+                hovertemplate='Sales: £%{y:,.2f}<extra></extra>'
             )
         )
         
@@ -152,7 +152,7 @@ def create_product_trends_chart(filtered_data: str) -> dbc.Card:
             template=plot_template,
             xaxis_title='Month',
             yaxis=dict(
-                title='Revenue (£)',
+                title='Sales (£)',
                 titlefont=dict(color=chart_colors[0]),
                 tickfont=dict(color=chart_colors[0])
             ),
@@ -194,81 +194,6 @@ def create_product_trends_chart(filtered_data: str) -> dbc.Card:
                 html.P(f"Error: {str(e)}", className="text-muted")
             ])
         )
-
-# def create_product_correlation_chart(filtered_data: str) -> dbc.Card:
-#     """
-#     Create a chart showing product correlations based on purchase patterns
-#     """
-#     df = pd.read_json(filtered_data, orient='split')
-    
-#     # Create purchase matrix (which products are bought together)
-#     purchase_matrix = pd.crosstab(
-#         df['InvoiceNo'],
-#         df['Description']
-#     )
-    
-#     # Calculate correlation matrix
-#     corr_matrix = purchase_matrix.corr()
-    
-#     # Get top correlated product pairs
-#     correlations = []
-#     for i in range(len(corr_matrix.columns)):
-#         for j in range(i+1, len(corr_matrix.columns)):
-#             correlations.append({
-#                 'Product1': corr_matrix.index[i],
-#                 'Product2': corr_matrix.columns[j],
-#                 'Correlation': corr_matrix.iloc[i, j]
-#             })
-    
-#     # Convert to DataFrame and get top correlations
-#     corr_df = pd.DataFrame(correlations)
-#     top_correlations = corr_df.nlargest(10, 'Correlation')
-    
-#     # Create the figure
-#     fig = go.Figure()
-    
-#     # Add correlation bars
-#     fig.add_trace(
-#         go.Bar(
-#             y=[f"{row['Product1']} & {row['Product2']}" for _, row in top_correlations.iterrows()],
-#             x=top_correlations['Correlation'],
-#             orientation='h',
-#             marker_color=chart_colors[0]
-#         )
-#     )
-    
-#     # Update layout
-#     fig.update_layout(
-#         title='Top Product Correlations',
-#         template=plot_template,
-#         xaxis_title='Correlation Coefficient',
-#         showlegend=False,
-#         margin=dict(l=300, r=40, t=80, b=60),
-#         height=500
-#     )
-    
-#     return dbc.Card(
-#         dbc.CardBody([
-#             dcc.Graph(figure=fig)
-#         ])
-#     )
-
-
-# def compute_product_correlations(purchase_matrix_chunk):
-#     """
-#     Compute correlations for a chunk of the purchase matrix
-    
-#     Args:
-#         purchase_matrix_chunk (pd.DataFrame): A subset of the purchase matrix
-    
-#     Returns:
-#         pd.DataFrame: Correlation matrix for the chunk
-#     """
-#     try:
-#         return purchase_matrix_chunk.corr(method='pearson')
-#     except Exception as e:
-#         print(f"Error in correlation computation: {e}")
-#         return pd.DataFrame()
 
 def compute_product_correlations(purchase_matrix_chunk):
     """
@@ -379,38 +304,6 @@ def create_product_correlation_chart(filtered_data: str) -> dbc.Card:
         # Create the figure
         fig = go.Figure()
         
-        # # Add correlation bars with color intensity
-        # fig.add_trace(
-        #     go.Bar(
-        #         y=[f"{row['Product1']} & {row['Product2']}" for _, row in top_correlations.iterrows()],
-        #         x=top_correlations['Correlation'],
-        #         orientation='h',
-        #         marker=dict(
-        #             color=[f'rgba({"0,0,255" if c=="blue" else "255,0,0"}, {intensity*0.8})' 
-        #                    for c, intensity in zip(colors, color_intensities)],
-        #         ),
-        #         hovertemplate='Products: %{y}<br>Correlation: %{x:.2f}<extra></extra>'
-        #     )
-        # )
-        
-        # # Update layout
-        # fig.update_layout(
-        #     title={
-        #         'text': 'Top Product Correlations',
-        #         'x': 0.5,
-        #         'xanchor': 'center'
-        #     },
-        #     template='plotly_white',
-        #     xaxis_title='Correlation Coefficient',
-        #     xaxis=dict(
-        #         tickmode='linear',
-        #         tick0=top_correlations['Correlation'].min(),
-        #         dtick=(top_correlations['Correlation'].max() - top_correlations['Correlation'].min()) / 5
-        #     ),
-        #     showlegend=False,
-        #     margin=dict(l=300, r=40, t=80, b=60),
-        #     height=500
-        # )
         # Add correlation bars with color intensity
         fig.add_trace(
             go.Bar(
@@ -436,11 +329,11 @@ def create_product_correlation_chart(filtered_data: str) -> dbc.Card:
             },
             template='plotly_white',
             xaxis_title='Correlation Coefficient',
-            xaxis=dict(
-                tickmode='linear',
-                tick0=top_correlations['Correlation'].min(),
-                dtick=(top_correlations['Correlation'].max() - top_correlations['Correlation'].min()) / 5
-            ),
+            # xaxis=dict(
+            #     tickmode='linear',
+            #     tick0=top_correlations['Correlation'].min(),
+            #     dtick=(top_correlations['Correlation'].max() - top_correlations['Correlation'].min()) / 5
+            # ),
             yaxis=dict(
                 tickmode='array',
                 tickvals=list(range(len(top_correlations))),
@@ -466,131 +359,6 @@ def create_product_correlation_chart(filtered_data: str) -> dbc.Card:
             ])
         )
 
-
-# def create_product_correlation_chart(filtered_data: str) -> dbc.Card:
-#     """
-#     Create a chart showing product correlations based on purchase patterns
-#     with parallel processing for improved performance
-    
-#     Args:
-#         filtered_data (str): JSON-formatted purchase data
-    
-#     Returns:
-#         dbc.Card: Plotly visualization of product correlations
-#     """
-#     try:
-#         # Load the data
-#         df = pd.read_json(filtered_data, orient='split')
-        
-#         # Prepare purchase matrix
-#         # Group by InvoiceNo and Description, then pivot to create binary purchase matrix
-#         purchase_matrix = df.groupby(['InvoiceNo', 'Description']).size().unstack(fill_value=0)
-#         purchase_matrix = (purchase_matrix > 0).astype(int)
-        
-#         # Parallel correlation computation
-#         num_cores = multiprocessing.cpu_count()
-        
-#         # Split the purchase matrix into chunks for parallel processing
-#         matrix_chunks = np.array_split(purchase_matrix, num_cores)
-        
-#         # Compute correlations in parallel
-#         correlation_results = Parallel(n_jobs=num_cores)(
-#             delayed(compute_product_correlations)(chunk) 
-#             for chunk in matrix_chunks
-#         )
-        
-#         # Combine correlation results
-#         # Use the first result as a base and merge others
-#         corr_matrix = correlation_results[0]
-#         for result in correlation_results[1:]:
-#             corr_matrix = corr_matrix.combine_first(result)
-        
-#         # Create a mask to remove self-correlations and redundant pairs
-#         mask = np.triu(np.ones_like(corr_matrix, dtype=bool))
-        
-#         # Gather correlations, removing self and duplicate correlations
-#         correlations = []
-#         for i in range(len(corr_matrix.columns)):
-#             for j in range(i+1, len(corr_matrix.columns)):
-#                 correlations.append({
-#                     'Product1': corr_matrix.index[i],
-#                     'Product2': corr_matrix.columns[j],
-#                     'Correlation': corr_matrix.iloc[i, j]
-#                 })
-        
-#         # Convert to DataFrame and filter correlations
-#         corr_df = pd.DataFrame(correlations)
-        
-#         # Filter out weak correlations 
-#         significant_correlations = corr_df[
-#             (corr_df['Correlation'].abs() > 0.3) & 
-#             (corr_df['Correlation'] != 1.0)
-#         ]
-        
-#         # Sort by absolute correlation
-#         top_correlations = significant_correlations.sort_values(
-#             by='Correlation', 
-#             key=abs, 
-#             ascending=False
-#         ).head(15)
-        
-#         # Create color scale that shows variation
-#         # Blue for positive, Red for negative correlations
-#         colors = top_correlations['Correlation'].apply(
-#             lambda x: 'blue' if x > 0 else 'red'
-#         )
-#         color_intensities = np.abs(top_correlations['Correlation'])
-        
-#         # Create the figure
-#         fig = go.Figure()
-        
-#         # Add correlation bars with color intensity
-#         fig.add_trace(
-#             go.Bar(
-#                 y=[f"{row['Product1']} & {row['Product2']}" for _, row in top_correlations.iterrows()],
-#                 x=top_correlations['Correlation'],
-#                 orientation='h',
-#                 marker=dict(
-#                     color=[f'rgba({"0,0,255" if c=="blue" else "255,0,0"}, {intensity*0.8})' 
-#                            for c, intensity in zip(colors, color_intensities)],
-#                 ),
-#                 hovertemplate='Products: %{y}<br>Correlation: %{x:.2f}<extra></extra>'
-#             )
-#         )
-        
-#         # Update layout
-#         fig.update_layout(
-#             title={
-#                 'text': 'Top Product Correlations',
-#                 'x': 0.5,
-#                 'xanchor': 'center'
-#             },
-#             template='plotly_white',
-#             xaxis_title='Correlation Coefficient',
-#             xaxis=dict(
-#                 tickmode='linear',
-#                 tick0=top_correlations['Correlation'].min(),
-#                 dtick=(top_correlations['Correlation'].max() - top_correlations['Correlation'].min()) / 5
-#             ),
-#             showlegend=False,
-#             margin=dict(l=300, r=40, t=80, b=60),
-#             height=500
-#         )
-        
-#         return dbc.Card(
-#             dbc.CardBody([
-#                 dcc.Graph(figure=fig)
-#             ])
-#         )
-    
-#     except Exception as e:
-#         return dbc.Card(
-#             dbc.CardBody([
-#                 html.P(f"Error creating product correlation chart: {str(e)}", 
-#                        className="text-danger text-center")
-#             ])
-#         )
-    
 def create_category_performance_chart(category_metrics: pd.DataFrame, metric: str = 'revenue') -> dbc.Card:
     """
     Create a chart showing category performance analysis
@@ -606,8 +374,8 @@ def create_category_performance_chart(category_metrics: pd.DataFrame, metric: st
     
     if metric == 'revenue':
         y_values = category_metrics['TotalAmount']
-        y_title = 'Revenue (£)'
-        hover_template = 'Category: %{x}<br>Revenue: £%{y:,.2f}<extra></extra>'
+        y_title = 'Sales (£)'
+        hover_template = 'Category: %{x}<br>Sales: £%{y:,.2f}<extra></extra>'
     elif metric == 'quantity':
         y_values = category_metrics['Quantity']
         y_title = 'Quantity Sold'

@@ -3,6 +3,12 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+cache-directory/
+
+data/
+Online_Retail.xlsx
+logs/
+
 # C extensions
 *.so
 

@@ -227,15 +227,15 @@ def create_sales_by_category(filtered_data: str) -> dbc.Card:
                 name='Revenue',
                 orientation='h',
                 marker_color=chart_colors[0],
-                hovertemplate='%{y}<br>Revenue: £%{x:,.2f}<extra></extra>'
+                hovertemplate='%{y}<br>Sales: £%{x:,.2f}<extra></extra>'
             )
         )
         
         # Update layout
         fig.update_layout(
-            title='Top 10 Product Categories by Revenue',
+            title='Top 10 Product Categories by Sales',
             template=plot_template,
-            xaxis_title='Revenue (£)',
+            xaxis_title='Sales (£)',
             showlegend=False,
             margin=dict(l=160, r=40, t=80, b=60),
             height=400

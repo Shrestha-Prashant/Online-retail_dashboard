@@ -165,69 +165,35 @@ chart_defaults = {
     }
 }
 
+# Add loading spinner styles
+loading_spinner_style = {
+    'position': 'fixed',
+    'top': '50%',
+    'left': '50%',
+    'transform': 'translate(-50%, -50%)',
+    'z-index': '9999',
+    'background': 'rgba(255, 255, 255, 0)',
+    'width': '100%',
+    'height': '100%',
+    'display': 'flex',
+    'justify-content': 'center',
+    'align-items': 'center'
+}
+
+loading_spinner_config = {
+    'type': 'circle',  
+    'color': color_schemes['primary'],
+    'fullscreen': True,
+    'spinner_style': {
+        'position': 'fixed',
+        'top': '50%',
+        'left': '50%',
+        'transform': 'translate(-50%, -50%)',
+        'width': '3rem', 
+        'height': '3rem',
+        'z-index': '9999'
+    }
+}
+
 if __name__ == '__main__':
     app.run_server(debug=True, port=8050)
-
-# import dash
-# from dash import html, dcc
-# import dash_bootstrap_components as dbc
-# from flask_caching import Cache
-# import os
-# from datetime import datetime, timedelta
-
-# # Initialize the Dash app with server explicitly defined first
-# # server = dash.Flask(__name__)
-# app = dash.Dash(
-#     __name__,
-#     server=server,  # Explicitly set server
-#     external_stylesheets=[
-#         dbc.themes.BOOTSTRAP,
-#         'https://use.fontawesome.com/releases/v5.15.4/css/all.css'
-#     ],
-#     suppress_callback_exceptions=True,
-#     meta_tags=[
-#         {
-#             "name": "viewport",
-#             "content": "width=device-width, initial-scale=1.0"
-#         }
-#     ]
-# )
-
-# # Setup cache directory with absolute path
-# CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cache-directory')
-# if not os.path.exists(CACHE_DIR):
-#     os.makedirs(CACHE_DIR)
-
-# # Enhanced cache configuration
-# CACHE_CONFIG = {
-#     'CACHE_TYPE': 'filesystem',
-#     'CACHE_DIR': CACHE_DIR,
-#     'CACHE_DEFAULT_TIMEOUT': 300,
-#     'CACHE_THRESHOLD': 500,
-#     'CACHE_OPTIONS': {
-#         'mode': 0o777
-#     },
-#     'CACHE_KEY_PREFIX': 'retail_dashboard_',
-#     'CACHE_REDIS_URL': None
-# }
-
-# # Initialize cache with the server
-# cache = Cache(server, config=CACHE_CONFIG)
-
-# # App title
-# app.title = "Online Retail Dashboard"
-
-# # Rest of your configurations (color_schemes, chart_colors, etc.) remain the same
-# # ...
-
-# # Add debug function for cache operations
-# def debug_cache_info():
-#     """Print cache directory and permissions information"""
-#     print(f"Cache Directory: {CACHE_DIR}")
-#     print(f"Cache Directory exists: {os.path.exists(CACHE_DIR)}")
-#     print(f"Cache Directory permissions: {oct(os.stat(CACHE_DIR).st_mode)[-3:]}")
-#     print(f"Cache Directory contents: {os.listdir(CACHE_DIR)}")
-
-# if __name__ == '__main__':
-#     debug_cache_info()  # Print cache information on startup
-#     app.run_server(debug=True, port=8050)

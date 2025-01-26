@@ -54,20 +54,20 @@ def create_kpi_card(title: str, value: str, trend: float, icon_class: str) -> db
                     ),
                     className="mb-2"
                 ),
-                # Trend Row
-                dbc.Row(
-                    dbc.Col(
-                        [
-                            get_trend_arrow(is_increase),
-                            html.Span(
-                                f" {abs(trend):.1f}%",
-                                className=f"ms-1 {'text-success' if is_increase else 'text-danger'}"
-                            ),
-                            html.Span(" vs previous period", className="text-muted small ms-1")
-                        ],
-                        className="d-flex align-items-center"
-                    )
-                )
+                # # Trend Row
+                # dbc.Row(
+                #     dbc.Col(
+                #         [
+                #             get_trend_arrow(is_increase),
+                #             html.Span(
+                #                 f" {abs(trend):.1f}%",
+                #                 className=f"ms-1 {'text-success' if is_increase else 'text-danger'}"
+                #             ),
+                #             html.Span(" vs previous period", className="text-muted small ms-1")
+                #         ],
+                #         className="d-flex align-items-center"
+                #     )
+                # )
             ]
         ),
         style=kpi_card_style

@@ -2,7 +2,7 @@ from dash import html, dcc
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output, State
 import dash
-from app import app, cache
+from app import app, cache, loading_spinner_config, loading_spinner_style
 import pandas as pd
 from datetime import datetime
 import os
@@ -35,10 +35,8 @@ DATA_PATH = '/Users/panda/Documents/data_mining/Online-Retail-Dashboard/Online_R
 print(DATA_PATH)
 CACHE_DIR = 'data/processed'
 loader = RetailDataLoader(DATA_PATH, CACHE_DIR)
-print("RetailDataLoader crossed")
 
 def make_cache_key():
-    """Generate a unique cache key based on the data file's modification time"""
     data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Online_Retail.xlsx')
     if os.path.exists(data_path):
         mtime = os.path.getmtime(data_path)
@@ -118,7 +116,7 @@ app.layout = html.Div([
         start_date=start_date,
         end_date=end_date,
         countries=df['Country'].unique().tolist() if not df.empty else [],
-        categories=df['Category'].unique().tolist() if 'Category' in df.columns else []
+        # categories=df['Category'].unique().tolist() if 'Category' in df.columns else []
     ),
     
     # Main content
@@ -137,9 +135,17 @@ app.layout = html.Div([
             className="mb-3"
         ),
         
-        # Tab content
-        html.Div(id='tab-content'),
         
+        # Tab content with loading overlay
+         dcc.Loading(
+            id="loading-overlay",
+            type=loading_spinner_config['type'],
+            color=loading_spinner_config['color'],
+            fullscreen=loading_spinner_config['fullscreen'],
+            children=[html.Div(id='tab-content')],
+            style=loading_spinner_config.get('spinner_style', {})
+        ),
+
         # Footer
         html.Footer(
             dbc.Row([
@@ -155,7 +161,6 @@ app.layout = html.Div([
     ], fluid=True)
 ])
 
-# Add this after app.layout definition
 @app.callback(
     Output('filtered-data-store', 'data'),
     [Input('date-filter', 'start_date')],
